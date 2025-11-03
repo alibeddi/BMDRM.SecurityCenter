@@ -47,7 +47,6 @@ export default function AlertsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [selectedAlerts, setSelectedAlerts] = useState<number[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [limit, setLimit] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -135,7 +134,7 @@ export default function AlertsPage() {
 
   const series = seriesByDay(alerts);
 
-  // Build multi-series (top 3) for Source IP chart like CrowdSec
+  // Build multi-series (top 3) for charts like CrowdSec
   function seriesByDayForKeys(
     items: any[],
     keyFn: (a: any) => string | undefined,
@@ -164,50 +163,62 @@ export default function AlertsPage() {
       return found ? { ...base, ...found } : base;
     });
   }
+  
+  // Source IP chart data
   const sourceTopKeys = topSourceIp.map((t) => t.name).slice(0, 3) as string[];
   const sourceSeries = seriesByDayForKeys(
     alerts,
     (a) => a?.source?.ip || a?.source?.value || a?.decisions?.[0]?.value,
     sourceTopKeys
   );
+  
+  // ASNs chart data
+  const asnTopKeys = topASNs.map((t) => t.name).slice(0, 3) as string[];
+  const asnSeries = seriesByDayForKeys(
+    alerts,
+    (a) => getMetaValue(a?.events?.[0]?.meta, "ASNOrg") || getMetaValue(a?.events?.[0]?.meta, "ASNNumber"),
+    asnTopKeys
+  );
+  
+  // Engines chart data
+  const engineTopKeys = topEngines.map((t) => t.name).slice(0, 3) as string[];
+  const engineSeries = seriesByDayForKeys(
+    alerts,
+    (a) => getMetaValue(a?.events?.[0]?.meta, "machine"),
+    engineTopKeys
+  );
+  
+  // Scenarios chart data
+  const scenarioTopKeys = topScenarios.map((t) => t.name).slice(0, 3) as string[];
+  const scenarioSeries = seriesByDayForKeys(
+    alerts,
+    (a) => a?.scenario,
+    scenarioTopKeys
+  );
 
-  const filteredAlerts = alerts.filter((a) => {
-    const srcIp =
-      a?.source?.ip || a?.source?.value || a?.decisions?.[0]?.value || "";
-    const scenario = a?.scenario || "";
-    const desc = a?.message || "";
-    const matchesSearch =
-      scenario.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      String(srcIp).includes(searchTerm) ||
-      desc.toLowerCase().includes(searchTerm.toLowerCase());
-    // API doesn’t provide severity/status; keep filters as passthrough
+  const filteredAlerts = alerts.filter((alert) => {
+    const matchesSearch = searchTerm === "" || JSON.stringify(alert).toLowerCase().includes(searchTerm.toLowerCase());
     const matchesSeverity = severityFilter === "All";
     const matchesStatus = statusFilter === "All";
     return matchesSearch && matchesSeverity && matchesStatus;
   });
 
-  const handleSelectAlert = (alertId: number) => {
-    setSelectedAlerts((prev) =>
-      prev.includes(alertId)
-        ? prev.filter((id) => id !== alertId)
-        : [...prev, alertId]
-    );
-  };
 
-  const handleSelectAll = () => {
-    if (selectedAlerts.length === filteredAlerts.length) {
-      setSelectedAlerts([]);
-    } else {
-      setSelectedAlerts(filteredAlerts.map((alert) => alert.id));
-    }
-  };
 
   return (
     <div className="p-4 md:p-6">
       {/* Visualizer */}
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+          Security Alerts
+        </h1>
+        <p className="mt-2 text-sm md:text-base text-gray-600">
+          Monitor and manage security events and threats
+        </p>
+      </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* Source IP */}
-        <div className="bg-white rounded-lg shadow p-4">
+        <div className="bg-white rounded-lg shadow p-4 ">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-semibold text-gray-800">Source IP</h3>
           </div>
@@ -215,7 +226,7 @@ export default function AlertsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
                 data={sourceSeries}
-                margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                 <XAxis dataKey="date" />
                 <YAxis />
                 <RechartsTooltip />
@@ -256,18 +267,22 @@ export default function AlertsPage() {
           <div className="h-28">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={series}
+                data={asnSeries}
                 margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <XAxis dataKey="date" hide />
-                <YAxis hide />
+                <XAxis dataKey="date" />
+                <YAxis />
                 <RechartsTooltip />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
-                  dot={false}
-                />
+                {asnTopKeys.map((k, i) => (
+                  <Line
+                    key={k}
+                    type="monotone"
+                    dataKey={k}
+                    name={`${i + 1}st ${k}`}
+                    stroke={["#8b5cf6", "#a78bfa", "#c4b5fd"][i % 3]}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -295,18 +310,22 @@ export default function AlertsPage() {
           <div className="h-28">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={series}
+                data={engineSeries}
                 margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <XAxis dataKey="date" hide />
-                <YAxis hide />
+                <XAxis dataKey="date" />
+                <YAxis />
                 <RechartsTooltip />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={false}
-                />
+                {engineTopKeys.map((k, i) => (
+                  <Line
+                    key={k}
+                    type="monotone"
+                    dataKey={k}
+                    name={`${i + 1}st ${k || "-"}`}
+                    stroke={["#10b981", "#34d399", "#6ee7b7"][i % 3]}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -332,18 +351,22 @@ export default function AlertsPage() {
           <div className="h-28">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={series}
+                data={scenarioSeries}
                 margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <XAxis dataKey="date" hide />
-                <YAxis hide />
+                <XAxis dataKey="date" />
+                <YAxis />
                 <RechartsTooltip />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  dot={false}
-                />
+                {scenarioTopKeys.map((k, i) => (
+                  <Line
+                    key={k}
+                    type="monotone"
+                    dataKey={k}
+                    name={`${i + 1}st ${k}`}
+                    stroke={["#f59e0b", "#fbbf24", "#fcd34d"][i % 3]}
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -360,14 +383,6 @@ export default function AlertsPage() {
             ))}
           </div>
         </div>
-      </div>
-      <div className="mb-6 md:mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-          Security Alerts
-        </h1>
-        <p className="mt-2 text-sm md:text-base text-gray-600">
-          Monitor and manage security events and threats
-        </p>
       </div>
 
       {/* Filters and Search */}
@@ -432,31 +447,7 @@ export default function AlertsPage() {
         </div>
       </div>
 
-      {/* Actions Bar */}
-      {selectedAlerts.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-blue-800">
-              {selectedAlerts.length} alert
-              {selectedAlerts.length > 1 ? "s" : ""} selected
-            </span>
-            <div className="flex space-x-2">
-              <button className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <CheckIcon className="h-4 w-4 mr-1" />
-                Mark as Resolved
-              </button>
-              <button className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-500">
-                <XMarkIcon className="h-4 w-4 mr-1" />
-                Mark as False
-              </button>
-              <button className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500">
-                <TrashIcon className="h-4 w-4 mr-1" />
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Alerts Table Section */}
 
       {/* Alerts Table */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
@@ -464,52 +455,27 @@ export default function AlertsPage() {
           <table className="min-w-full divide-y divide-gray-200 text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-3 md:px-6 py-3 text-left">
-                  <input
-                    type="checkbox"
-                    checked={
-                      selectedAlerts.length === filteredAlerts.length &&
-                      filteredAlerts.length > 0
-                    }
-                    onChange={handleSelectAll}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                </th>
                 <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <span className="hidden sm:inline">Alert Type</span>
-                  <span className="sm:hidden">Type</span>
+                  Scenario
                 </th>
                 <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Source
                 </th>
-                <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Events
+                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Target
                 </th>
                 <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Severity
-                </th>
-                <th className="hidden sm:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Duration
-                </th>
-                <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Time
+                  Context
                 </th>
                 <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  When
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredAlerts.map((alert) => (
                 <tr key={alert.id} className="hover:bg-gray-50">
-                  <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      checked={selectedAlerts.includes(alert.id)}
-                      onChange={() => handleSelectAlert(alert.id)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                  </td>
+                  {/* Scenario */}
                   <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <ExclamationTriangleIcon className="h-4 w-4 md:h-5 md:w-5 text-gray-400 mr-2 md:mr-3" />
@@ -517,55 +483,61 @@ export default function AlertsPage() {
                         <div className="text-sm font-medium text-gray-900">
                           {alert.scenario}
                         </div>
-                        <div className="text-xs md:text-sm text-gray-500">
-                          {alert.message}
+                        <div 
+                          className="text-xs md:text-sm text-gray-500 relative group"
+                          title={alert.message}
+                        >
+                          <span className="inline-block max-w-[200px] truncate">
+                            {alert.message}
+                          </span>
+                          <div className="absolute z-10 hidden group-hover:block bg-gray-900 text-white text-xs rounded p-2 w-64 mt-1 left-0">
+                            {alert.message}
+                          </div>
                         </div>
                       </div>
                     </div>
                   </td>
+                  {/* Source */}
                   <td className="px-3 md:px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {alert?.source?.ip ||
-                        alert?.source?.value ||
-                        alert?.decisions?.[0]?.value ||
-                        "-"}
+                      {alert?.source?.ip || alert?.source?.value || "-"}
                     </div>
                     <div className="text-xs md:text-sm text-gray-500">
-                      {getMetaValue(alert?.events?.[0]?.meta, "IsoCode") || "-"}{" "}
-                      •{" "}
-                      {getMetaValue(alert?.events?.[0]?.meta, "ASNNumber") ||
-                        "-"}
+                      {getMetaValue(alert?.events?.[0]?.meta, "ASNOrg") || 
+                       getMetaValue(alert?.events?.[0]?.meta, "ASNNumber") || "-"}
                     </div>
                   </td>
-                  <td className="hidden md:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {alert?.events_count ?? alert?.events?.length ?? 0}
-                  </td>
+                  {/* Target */}
                   <td className="px-3 md:px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${severityColors.High}`}>
-                      High
-                    </span>
+                    <div className="text-sm text-gray-900">
+                      {getMetaValue(alert?.meta, "security_engine_id") || "-"}
+                    </div>
+                    <div className="text-xs md:text-sm text-gray-500">
+                      {getMetaValue(alert?.meta, "security_engine_ip") || "-"}
+                    </div>
                   </td>
-                  <td className="hidden sm:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {alert?.duration || "-"}
+                  {/* Context */}
+                  <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {getMetaValue(alert?.meta, "target_user") || "-"}
+                    </div>
+                    <div className="text-xs md:text-sm text-gray-500">
+                      {alert?.events_count || alert?.events?.length || 0} events
+                    </div>
                   </td>
-                  <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {format(
-                      new Date(alert?.stop_at || alert?.start_at || now),
-                      "MMM dd, HH:mm"
-                    )}
-                  </td>
-                  <td className="px-3 md:px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-1 md:space-x-2">
-                      <button className="text-blue-600 hover:text-blue-900">
-                        <EyeIcon className="h-4 w-4" />
-                      </button>
-                      <button className="text-green-600 hover:text-green-900">
-                        <CheckIcon className="h-4 w-4" />
-                      </button>
-                      <button className="text-red-600 hover:text-red-900">
-                        <XMarkIcon className="h-4 w-4" />
-                      </button>
+                  {/* When */}
+                  <td className="px-3 md:px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {format(
+                        new Date(alert?.stop_at || alert?.start_at || now),
+                        "MMM d, yyyy"
+                      )}
+                    </div>
+                    <div className="text-xs md:text-sm text-gray-500">
+                      {format(
+                        new Date(alert?.stop_at || alert?.start_at || now),
+                        "HH:mm:ss"
+                      )}
                     </div>
                   </td>
                 </tr>

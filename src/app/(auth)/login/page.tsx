@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 function LoginInner() {
@@ -27,8 +27,10 @@ function LoginInner() {
         console.log(data);
         throw new Error(data?.error || "Login failed");
       }
+      
+      // Force a hard redirect to dashboard instead of using router.replace
       const next = params.get("next") || "/";
-      router.replace(next);
+      window.location.href = next;
     } catch (err: any) {
       setError(err?.message || "Login failed");
     } finally {
