@@ -43,10 +43,10 @@ function LoginInner() {
     try {
       await login(email, password);
       console.log("[LOGIN PAGE] Login function completed");
-      
+
       // Wait a bit for the auth state to propagate
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
       const next = params.get("next") || "/alerts";
       console.log("[LOGIN PAGE] Redirecting to:", next);
       router.replace(next);

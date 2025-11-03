@@ -3,11 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const token = req.cookies.get("auth_token")?.value;
-  
+
   console.log("[MIDDLEWARE]", {
     pathname,
     hasToken: !!token,
-    cookies: req.cookies.getAll().map(c => c.name),
+    cookies: req.cookies.getAll().map((c) => c.name),
   });
 
   // Allow public paths
@@ -23,7 +23,9 @@ export function middleware(req: NextRequest) {
   if (publicPaths.some((p) => pathname.startsWith(p))) {
     // If already authenticated and trying to visit login, bounce to home (or next param)
     if (pathname === "/login" && token) {
-      console.log("[MIDDLEWARE] Redirecting authenticated user from login to dashboard");
+      console.log(
+        "[MIDDLEWARE] Redirecting authenticated user from login to dashboard"
+      );
       const url = req.nextUrl.clone();
       const next = url.searchParams.get("next") || "/alerts";
       url.pathname = next;

@@ -28,9 +28,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       console.log("[AUTH] Refreshing session...");
-      const res = await fetch("/api/session", { 
+      const res = await fetch("/api/session", {
         cache: "no-store",
-        credentials: "include" // Ensure cookies are sent
+        credentials: "include", // Ensure cookies are sent
       });
       console.log("[AUTH] Session response status:", res.status);
       if (!res.ok) {
