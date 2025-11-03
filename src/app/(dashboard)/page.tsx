@@ -77,6 +77,8 @@ export default function Dashboard() {
   const [loadingStats, setLoadingStats] = useState(false);
   const [alertsFromStats, setAlertsFromStats] = useState(false);
   const now = useMemo(() => new Date(), []);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
 
   // Load statistics for overview cards
   useEffect(() => {
@@ -84,6 +86,7 @@ export default function Dashboard() {
     fetch("/api/statistics")
       .then((r) => r.json())
       .then((s) => {
+        setStatsError(null);
         // Map to expected shape based on provided preview
         const totalAlerts = s?.totalAlerts ?? s?.alertsTotal ?? 0;
         const activeDecisions = s?.activeDecisions ?? 0;
@@ -130,7 +133,10 @@ export default function Dashboard() {
         }
         setLoadingStats(false);
       })
-      .catch(() => setLoadingStats(false));
+      .catch(() => {
+        setStatsError("Failed to load statistics");
+        setLoadingStats(false);
+      });
   }, []);
 
   // Load alerts with limit
@@ -146,9 +152,12 @@ export default function Dashboard() {
         });
         const a = await r.json();
         const list = Array.isArray(a?.alerts) ? a.alerts : [];
-        if (!cancelled) setAlerts(list);
+        if (!cancelled) {
+          setAlerts(list);
+          setAlertsError(null);
+        }
       } catch {
-        // ignore
+        if (!cancelled) setAlertsError("Failed to load alerts");
       } finally {
         if (!cancelled) setLoadingAlerts(false);
       }
@@ -181,6 +190,16 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 md:p-6">
+      {statsError && (
+        <div className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {statsError}
+        </div>
+      )}
+      {alertsError && (
+        <div className="mb-4 rounded border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+          {alertsError}
+        </div>
+      )}
       <div className="mb-6 md:mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
           Security Dashboard
