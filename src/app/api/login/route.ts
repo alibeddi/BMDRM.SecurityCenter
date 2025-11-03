@@ -7,24 +7,24 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { email, password, twoFactorCode, twoFactorRecoveryCode } =
       body || {};
-      
+
     if (!email || !password) {
       return NextResponse.json(
         { error: "Missing credentials" },
         { status: 400 }
       );
     }
-    
+
     const base = process.env.API_BASE || process.env.NEXT_PUBLIC_API_BASE;
     const loginPath = process.env.API_LOGIN_PATH || "/login";
-    
+
     if (!base) {
       return NextResponse.json(
         { error: "API_BASE is not configured" },
         { status: 500 }
       );
     }
-    
+
     // Forward login request to upstream API
     const upstream = await fetch(`${base}${loginPath}`, {
       method: "POST",
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         { status: 401 }
       );
     }
-    
+
     const token = (data as any)?.accessToken;
     if (!token) {
       return NextResponse.json(

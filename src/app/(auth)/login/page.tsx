@@ -1,39 +1,35 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
-function LoginInner() {
+function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const { login, isAuthenticated } = useAuth();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated === true) {
-      const next = params.get("next") || "/alerts";
-      console.log("[LOGIN PAGE] Already authenticated, redirecting to:", next);
-      router.replace(next);
-    }
-  }, [isAuthenticated, router, params]);
-
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
     try {
+      console.log("[LOGIN] Starting login...");
       await login(email, password);
-      // Wait for the auth state to update
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      console.log("[LOGIN] Login successful");
+
+      // Redirect after login completes
       const next = params.get("next") || "/alerts";
+      console.log("[LOGIN] Redirecting to:", next);
       router.replace(next);
     } catch (err: any) {
+      console.error("[LOGIN] Login failed:", err);
       setError(err?.message || "Login failed");
       setLoading(false);
     }
@@ -92,11 +88,11 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          Loading…
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-gray-600">Loading...</div>
         </div>
       }>
-      <LoginInner />
+      <LoginForm />
     </Suspense>
   );
 }

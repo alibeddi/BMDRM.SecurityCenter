@@ -31,11 +31,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         cache: "no-store",
         credentials: "include",
       });
+
       if (!res.ok) {
+        console.log("[AUTH] Session check failed, status:", res.status);
         setIsAuthenticated(false);
         return;
       }
+
       const data = (await res.json()) as { authenticated: boolean };
+      console.log("[AUTH] Session data:", data);
       setIsAuthenticated(!!data?.authenticated);
     } catch (err) {
       console.error("[AUTH] Session check error:", err);
@@ -45,24 +49,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
+      console.log("[AUTH] Login attempt for:", email);
+
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-        credentials: "include",
+        credentials: "include", // ✅ crucial for cookie auth
       });
+
+      console.log("[AUTH] Login response status:", res.status);
       const data = await res.json().catch(() => ({}));
+      console.log("[AUTH] Login response data:", data);
+
       if (!res.ok) {
         throw new Error((data as any)?.error || "Login failed");
       }
-      // Refresh authentication state after successful login
+
+      // Immediately update state after successful login
+      console.log("[AUTH] Login successful, refreshing session...");
       await refresh();
+      console.log("[AUTH] Session refreshed, isAuthenticated updated");
     },
     [refresh]
   );
 
   const logout = useCallback(async () => {
-    await fetch("/api/logout", { method: "POST" });
+    await fetch("/api/logout", {
+      method: "POST",
+      credentials: "include",
+    });
     setIsAuthenticated(false);
     router.replace("/login");
   }, [router]);
