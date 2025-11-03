@@ -16,18 +16,20 @@ function LoginInner() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    console.log("[LOGIN PAGE] Submitting login form", { email });
     try {
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+      console.log("[LOGIN PAGE] Login response status:", res.status);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        console.log(data);
+        console.log("[LOGIN PAGE] Login error:", data);
         throw new Error(data?.error || "Login failed");
       }
-      
+      console.log("[LOGIN PAGE] Login successful, redirecting...");
       // Force a hard redirect to dashboard instead of using router.replace
       const next = params.get("next") || "/alerts";
       window.location.href = next;

@@ -41,11 +41,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
+      console.log("[AUTH] Login attempt", { email });
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+      console.log("[AUTH] Login response status:", res.status);
+      const data = await res.json().catch(() => ({}));
+      console.log("[AUTH] Login response data:", data);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error((data as any)?.error || "Login failed");
