@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 // --- recharts imports ---
@@ -19,9 +20,14 @@ import {
   ExclamationTriangleIcon,
   ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
+
+type Decision = {
+  type: string;
+  metadata?: { isoCode?: string } | null;
+};
 
 const pieColors = [
   "#0070f3",
@@ -34,13 +40,16 @@ const pieColors = [
   "#fdba74",
 ];
 function useDecisionStats() {
-  const [decisions, setDecisions] = useState([]);
+  const [decisions, setDecisions] = useState<Decision[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     fetch("/api/decisions")
       .then((r) => r.json())
       .then((d) => {
-        setDecisions(Array.isArray(d.decisions) ? d.decisions : []);
+        const arr = Array.isArray(d.decisions)
+          ? (d.decisions as Decision[])
+          : [];
+        setDecisions(arr);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -67,6 +76,7 @@ export default function Dashboard() {
   const [loadingAlerts, setLoadingAlerts] = useState(false);
   const [loadingStats, setLoadingStats] = useState(false);
   const [alertsFromStats, setAlertsFromStats] = useState(false);
+  const now = useMemo(() => new Date(), []);
 
   // Load statistics for overview cards
   useEffect(() => {
@@ -126,15 +136,27 @@ export default function Dashboard() {
   // Load alerts with limit
   useEffect(() => {
     if (alertsFromStats) return;
-    setLoadingAlerts(true);
-    fetch(`/api/alerts?limit=${alertLimit}`)
-      .then((r) => r.json())
-      .then((a) => {
+    let cancelled = false;
+    const controller = new AbortController();
+    (async () => {
+      if (!cancelled) setLoadingAlerts(true);
+      try {
+        const r = await fetch(`/api/alerts?limit=${alertLimit}`, {
+          signal: controller.signal,
+        });
+        const a = await r.json();
         const list = Array.isArray(a?.alerts) ? a.alerts : [];
-        setAlerts(list);
-        setLoadingAlerts(false);
-      })
-      .catch(() => setLoadingAlerts(false));
+        if (!cancelled) setAlerts(list);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoadingAlerts(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [alertLimit, alertsFromStats]);
   // Decision types data for Pie
   const typeCounts = Array.from(
@@ -187,7 +209,7 @@ export default function Dashboard() {
                 cy="50%"
                 outerRadius={80}
                 label={({ type, percent }) =>
-                  `${type} (${Math.round((percent ?? 0) * 100)}%)`
+                  `${type} (${Math.round(Number(percent ?? 0) * 100)}%)`
                 }>
                 {typeCounts.map((entry, i) => (
                   <Cell
@@ -312,7 +334,7 @@ export default function Dashboard() {
                       </div>
                       <div className="flex-shrink-0 text-sm text-gray-500">
                         {new Date(
-                          alert?.stop_at || alert?.start_at || Date.now()
+                          alert?.stop_at || alert?.start_at || now
                         ).toLocaleString()}
                       </div>
                     </div>

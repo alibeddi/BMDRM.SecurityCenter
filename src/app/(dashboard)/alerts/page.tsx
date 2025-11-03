@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import {
@@ -18,7 +19,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { format } from "date-fns";
 
@@ -51,15 +52,29 @@ export default function AlertsPage() {
   const [limit, setLimit] = useState(10);
   const [loading, setLoading] = useState(false);
 
+  const now = useMemo(() => new Date(), []);
+
   useEffect(() => {
-    setLoading(true);
-    fetch(`/api/alerts?limit=${limit}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setAlerts(Array.isArray(d?.alerts) ? d.alerts : []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    let cancelled = false;
+    const controller = new AbortController();
+    (async () => {
+      if (!cancelled) setLoading(true);
+      try {
+        const r = await fetch(`/api/alerts?limit=${limit}`, {
+          signal: controller.signal,
+        });
+        const d = await r.json();
+        if (!cancelled) setAlerts(Array.isArray(d?.alerts) ? d.alerts : []);
+      } catch {
+        // ignore
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
   }, [limit]);
 
   // ------- Visualizer data (top summaries) -------
@@ -101,14 +116,13 @@ export default function AlertsPage() {
     return out;
   }
   function seriesByDay(items: any[]) {
-    const now = new Date();
     const month = now.getMonth();
     const year = now.getFullYear();
     const keyOf = (d: Date) =>
       `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
     const m = new Map<string, number>();
     for (const a of items) {
-      const d = new Date(a?.start_at || a?.stop_at || Date.now());
+      const d = new Date(a?.start_at || a?.stop_at || now);
       if (d.getMonth() !== month || d.getFullYear() !== year) continue;
       const key = keyOf(d);
       m.set(key, (m.get(key) || 0) + 1);
@@ -127,7 +141,6 @@ export default function AlertsPage() {
     keyFn: (a: any) => string | undefined,
     keys: string[]
   ) {
-    const now = new Date();
     const month = now.getMonth();
     const year = now.getFullYear();
     const dayKey = (d: Date) =>
@@ -136,7 +149,7 @@ export default function AlertsPage() {
     for (const a of items) {
       const k = keyFn(a);
       if (!k || !keys.includes(k)) continue;
-      const d = new Date(a?.start_at || a?.stop_at || Date.now());
+      const d = new Date(a?.start_at || a?.stop_at || now);
       if (d.getMonth() !== month || d.getFullYear() !== year) continue;
       const dk = dayKey(d);
       if (!map.has(dk)) map.set(dk, { date: dk });
@@ -538,7 +551,7 @@ export default function AlertsPage() {
                   </td>
                   <td className="hidden lg:table-cell px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {format(
-                      new Date(alert?.stop_at || alert?.start_at || Date.now()),
+                      new Date(alert?.stop_at || alert?.start_at || now),
                       "MMM dd, HH:mm"
                     )}
                   </td>

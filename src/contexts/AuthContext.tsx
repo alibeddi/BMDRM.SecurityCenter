@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import {
@@ -61,7 +62,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   useEffect(() => {
-    refresh();
+    const id = setTimeout(() => {
+      void refresh();
+    }, 0);
+    return () => clearTimeout(id);
   }, [refresh]);
 
   const value = useMemo<AuthContextValue>(
