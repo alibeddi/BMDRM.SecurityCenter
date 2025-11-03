@@ -14,18 +14,6 @@ function LoginInner() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Debug function to check cookie status
-  const checkDebug = async () => {
-    try {
-      const res = await fetch("/api/debug");
-      const data = await res.json();
-      console.log("[LOGIN PAGE] Debug info:", data);
-      alert(JSON.stringify(data, null, 2));
-    } catch (err) {
-      console.error("[LOGIN PAGE] Debug error:", err);
-    }
-  };
-
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated === true) {
@@ -39,23 +27,16 @@ function LoginInner() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    console.log("[LOGIN PAGE] Submitting login form", { email });
     try {
       await login(email, password);
-      console.log("[LOGIN PAGE] Login function completed");
-
-      // Wait a bit for the auth state to propagate
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
+      // Wait for the auth state to update
+      await new Promise((resolve) => setTimeout(resolve, 200));
       const next = params.get("next") || "/alerts";
-      console.log("[LOGIN PAGE] Redirecting to:", next);
       router.replace(next);
     } catch (err: any) {
-      console.log("[LOGIN PAGE] Login error:", err);
       setError(err?.message || "Login failed");
       setLoading(false);
     }
-    // Don't set loading to false on success, let the redirect happen
   }
 
   return (
@@ -100,12 +81,6 @@ function LoginInner() {
             disabled={loading}
             className="w-full inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60">
             {loading ? "Signing in..." : "Sign in"}
-          </button>
-          <button
-            type="button"
-            onClick={checkDebug}
-            className="w-full inline-flex items-center justify-center rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-            Debug Cookie Status
           </button>
         </form>
       </div>
