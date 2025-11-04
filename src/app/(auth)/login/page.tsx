@@ -14,6 +14,15 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Check for session expiration message
+  const reason = params.get("reason");
+  const sessionMessage =
+    reason === "session_expired"
+      ? "Your session has expired. Please sign in again."
+      : reason === "token_expired"
+      ? "Your authentication token has expired. Please sign in again."
+      : null;
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -25,7 +34,7 @@ function LoginForm() {
       console.log("[LOGIN] Login successful");
 
       // Redirect after login completes
-      const next = params.get("next") || "/alerts";
+      const next = params.get("next") || "/";
       console.log("[LOGIN] Redirecting to:", next);
       router.replace(next);
     } catch (err: any) {
@@ -42,6 +51,11 @@ function LoginForm() {
           <h1 className="text-2xl font-bold text-gray-900">BMDRM Security</h1>
           <p className="mt-1 text-sm text-gray-600">Sign in to continue</p>
         </div>
+        {sessionMessage && (
+          <div className="mb-4 rounded border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-800">
+            {sessionMessage}
+          </div>
+        )}
         {error && (
           <div className="mb-4 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}

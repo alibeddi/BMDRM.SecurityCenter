@@ -86,6 +86,10 @@ export default function Dashboard() {
   const [statsError, setStatsError] = useState<string | null>(null);
   const [alertsError, setAlertsError] = useState<string | null>(null);
 
+  // New: Store statistics data for charts
+  const [countryGraphData, setCountryGraphData] = useState<any[]>([]);
+  const [decisionsByTypeData, setDecisionsByTypeData] = useState<any[]>([]);
+
   // Load statistics for overview cards
   useEffect(() => {
     setLoadingStats(true);
@@ -93,11 +97,12 @@ export default function Dashboard() {
       .then((r) => r.json())
       .then((s) => {
         setStatsError(null);
-        // Map to expected shape based on provided preview
-        const totalAlerts = s?.totalAlerts ?? s?.alertsTotal ?? 0;
+        // Map to expected shape based on new API structure
+        const totalAlerts = s?.totalAlerts ?? 0;
         const activeDecisions = s?.activeDecisions ?? 0;
         const blockedIps = s?.blockedIps ?? 0;
         const successRate = s?.successRate ?? null;
+
         const mapped: StatCard[] = [
           {
             name: "Total Alerts",
@@ -127,6 +132,18 @@ export default function Dashboard() {
           });
         }
         setCards(mapped);
+
+        // Handle new countryGraph data
+        if (Array.isArray(s?.countryGraph)) {
+          setCountryGraphData(s.countryGraph);
+        }
+
+        // Handle new decisionsByType data
+        if (Array.isArray(s?.decisionsByType)) {
+          setDecisionsByTypeData(s.decisionsByType);
+        }
+
+        // Handle topRecentAlerts
         if (Array.isArray(s?.topRecentAlerts)) {
           const normalized = s.topRecentAlerts.map((a: any, idx: number) => ({
             id: idx,
@@ -173,26 +190,92 @@ export default function Dashboard() {
       controller.abort();
     };
   }, [alertLimit, alertsFromStats]);
-  // Decision types data for Pie
-  const typeCounts = Array.from(
-    decisions.reduce((m, d) => {
-      m.set(d.type, (m.get(d.type) || 0) + 1);
-      return m;
-    }, new Map()),
-    ([type, value]) => ({ type, value })
-  );
+  // Decision types data for Pie - use stats data if available, otherwise fallback to decisions
+  const typeCounts = useMemo(() => {
+    if (decisionsByTypeData.length > 0) {
+      // Use data from statistics API
+      return decisionsByTypeData.map((item: any) => ({
+        type: item.type,
+        value: item.count,
+      }));
+    }
+    // Fallback to calculating from decisions
+    return Array.from(
+      decisions.reduce((m, d) => {
+        m.set(d.type, (m.get(d.type) || 0) + 1);
+        return m;
+      }, new Map()),
+      ([type, value]) => ({ type, value })
+    );
+  }, [decisionsByTypeData, decisions]);
 
-  // Top country counts for Bar
-  const countryCounts = Array.from(
-    decisions.reduce((m, d) => {
-      const iso = d?.metadata?.isoCode || "?";
-      m.set(iso, (m.get(iso) || 0) + 1);
-      return m;
-    }, new Map()),
-    ([iso, value]) => ({ country: iso, value })
-  )
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6);
+  // Top country counts for Bar - use stats data if available, otherwise fallback to decisions
+  const countryCounts = useMemo(() => {
+    if (countryGraphData.length > 0) {
+      // Use data from statistics API
+      // Handle both formats: { country: "US", count: 86 } or { country: { value: "US" }, count: 86 }
+      return countryGraphData
+        .map((item: any) => {
+          const iso =
+            typeof item?.country === "string"
+              ? item.country
+              : item?.country?.value || "?";
+          const count = item?.count || 0;
+          return { country: iso, value: count };
+        })
+        .filter((item) => item.country !== "?")
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 6);
+    }
+    // Fallback to calculating from decisions
+    return Array.from(
+      decisions.reduce((m, d) => {
+        const iso = d?.metadata?.isoCode || "?";
+        m.set(iso, (m.get(iso) || 0) + 1);
+        return m;
+      }, new Map()),
+      ([iso, value]) => ({ country: iso, value })
+    )
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+  }, [countryGraphData, decisions]);
+
+  // World map data - use stats data if available, otherwise fallback to decisions
+  const worldMapData = useMemo(() => {
+    if (countryGraphData.length > 0) {
+      // Use data from statistics API
+      // Handle both formats: { country: "US", count: 86 } or { country: { value: "US" }, count: 86 }
+      const chartData = countryGraphData
+        .map((item: any) => {
+          const iso =
+            typeof item?.country === "string"
+              ? item.country
+              : item?.country?.value;
+          const count = item?.count || 0;
+          if (iso && iso !== "?") {
+            return [iso, count];
+          }
+          return null;
+        })
+        .filter((item): item is [string, number] => item !== null);
+
+      return [["Country", "Threats"], ...chartData];
+    }
+    // Fallback to calculating from decisions
+    return [
+      ["Country", "Threats"],
+      ...Array.from(
+        decisions.reduce((m, d) => {
+          const iso = d?.metadata?.isoCode;
+          if (iso && iso !== "?") {
+            m.set(iso, (m.get(iso) || 0) + 1);
+          }
+          return m;
+        }, new Map()),
+        ([iso, value]) => [iso, value]
+      ),
+    ];
+  }, [countryGraphData, decisions]);
 
   return (
     <div className="p-4 md:p-8 bg-gray-50 min-h-screen">
@@ -269,19 +352,7 @@ export default function Dashboard() {
             chartType="GeoChart"
             width="100%"
             height="100%"
-            data={[
-              ["Country", "Threats"],
-              ...Array.from(
-                decisions.reduce((m, d) => {
-                  const iso = d?.metadata?.isoCode;
-                  if (iso && iso !== "?") {
-                    m.set(iso, (m.get(iso) || 0) + 1);
-                  }
-                  return m;
-                }, new Map()),
-                ([iso, value]) => [iso, value]
-              ),
-            ]}
+            data={worldMapData}
             options={{
               colorAxis: {
                 colors: ["#dbeafe", "#93c5fd", "#3b82f6", "#1e40af", "#1e3a8a"],

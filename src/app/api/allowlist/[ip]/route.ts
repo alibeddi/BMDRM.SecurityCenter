@@ -6,10 +6,7 @@ type RouteContext = {
 };
 
 // DELETE /api/allowlist/[ip] - Remove IP from allowlist
-export async function DELETE(
-  req: Request,
-  context: RouteContext
-) {
+export async function DELETE(req: Request, context: RouteContext) {
   const token = (await cookies()).get("auth_token")?.value;
   if (!token) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
